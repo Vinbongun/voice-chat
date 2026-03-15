@@ -64,42 +64,17 @@ async def test_full_agent_flow_session_id_generated_when_absent(auth_client, moc
 
 
 @pytest.mark.asyncio
-async def test_agent_uses_rag_tool_when_document_query(auth_client, mocker):
-    """When LLM returns a tool_call for search_documents, verify the tool is invoked.
-
-    Simulates: LLM first returns tool_call → tool executes → LLM returns final answer.
-    We mock agent_graph.ainvoke to simulate that the agent processed the tool call.
-    """
-    # Mock the RAGFlow tool directly to verify it would be called
-    mock_search_docs = mocker.patch(
-        "app.agent.tools.rag.ragflow_client.retrieve",
-        new_callable=AsyncMock,
-        return_value=[
-            {
-                "document_id": "doc-1",
-                "document_keyword": "Политика отпусков",
-                "content": "Сотрудники имеют право на 28 дней оплачиваемого отпуска.",
-                "similarity": 0.95,
-                "url": "/docs/doc-1",
-            }
-        ],
-    )
-
-    # Mock agent to return a realistic answer that would come after RAG tool usage
-    rag_answer = "Согласно политике компании, сотрудники имеют право на 28 дней оплачиваемого отпуска."
-    mocker.patch(
+async def test_agent_flow_returns_expected_text(auth_client, mocker):
+    """Agent returns text from mocked LLM response."""
+    mock_invoke = mocker.patch(
         "app.routers.chat.agent_graph.ainvoke",
         new_callable=AsyncMock,
-        return_value={"messages": [AIMessage(content=rag_answer)]},
+        return_value={"messages": [AIMessage(content="Документ найден")]},
     )
-
-    response = await auth_client.post(
-        "/chat", json={"message": "Сколько дней отпуска мне положено?"}
-    )
-
+    response = await auth_client.post("/chat", json={"message": "найди регламент"})
     assert response.status_code == 200
-    data = response.json()
-    assert data["text"] == rag_answer
+    assert response.json()["text"] == "Документ найден"
+    mock_invoke.assert_called_once()
 
 
 @pytest.mark.asyncio

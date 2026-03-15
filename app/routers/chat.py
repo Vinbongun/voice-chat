@@ -5,7 +5,6 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage, SystemMessage
 from sse_starlette.sse import EventSourceResponse
 

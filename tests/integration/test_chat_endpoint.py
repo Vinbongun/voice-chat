@@ -120,3 +120,10 @@ async def test_stream_endpoint_requires_message_param(auth_client, mocker):
     """GET /chat/stream without message query param returns 422."""
     response = await auth_client.get("/chat/stream")
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_get_chat_history_requires_session_id(auth_client):
+    """History endpoint requires session_id query param."""
+    response = await auth_client.get("/chat/history")
+    assert response.status_code == 422
