@@ -3,36 +3,42 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.config import settings
 
 
 class RAGFlowClient:
-    """REST API client for RAGFlow document search service.
-
-    TODO: реализовать полностью в Task 4.
-    """
+    """REST API client for RAGFlow document search service."""
 
     def __init__(self) -> None:
         self.base_url = settings.RAGFLOW_BASE_URL
         self.api_key = settings.RAGFLOW_API_KEY
-        self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> RAGFlowClient:
-        self._client = httpx.AsyncClient(
-            base_url=self.base_url,
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            timeout=30.0,
-        )
-        return self
-
-    async def __aexit__(self, *args: Any) -> None:
-        if self._client:
-            await self._client.aclose()
-
-    async def search(self, query: str, top_k: int = 5) -> list[dict[str, Any]]:
-        """Search documents in RAGFlow.
-
-        TODO: реализовать в Task 4.
-        """
-        raise NotImplementedError("RAGFlowClient.search not yet implemented — Task 4")
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
+    async def retrieve(
+        self,
+        query: str,
+        dataset_ids: list[str] | None = None,
+        top_k: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Call RAGFlow /v1/retrieval endpoint and return a list of chunks."""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}/v1/retrieval",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "question": query,
+                    "dataset_ids": dataset_ids or [],
+                    "top_k": top_k,
+                    "similarity_threshold": 0.2,
+                    "vector_similarity_weight": 0.3,
+                },
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("data", {}).get("chunks", [])
