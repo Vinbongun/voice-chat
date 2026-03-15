@@ -28,7 +28,7 @@ class ChatSession(Base):
     )
 
     messages: Mapped[list[ChatMessage]] = relationship(
-        "ChatMessage", back_populates="session", lazy="dynamic"
+        "ChatMessage", back_populates="session", lazy="select"
     )
 
 
@@ -52,7 +52,7 @@ class ChatMessage(Base):
 
     session: Mapped[ChatSession] = relationship("ChatSession", back_populates="messages")
     feedback: Mapped[list[MessageFeedback]] = relationship(
-        "MessageFeedback", back_populates="message", lazy="dynamic"
+        "MessageFeedback", back_populates="message", lazy="select"
     )
 
 

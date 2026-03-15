@@ -1,24 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
-
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 
 from app.middleware.auth import get_current_user
-from app.schemas.chat import UserContext
+from app.schemas.chat import QuickActionRequest, QuickActionResponse, UserContext
 
 router = APIRouter(prefix="/chat", tags=["quick-actions"])
-
-
-class QuickActionRequest(BaseModel):
-    action: str
-    payload: dict[str, Any] = {}
-
-
-class QuickActionResponse(BaseModel):
-    result: dict[str, Any] = {}
-    message: str = ""
 
 
 @router.post("/quick-action", response_model=QuickActionResponse)

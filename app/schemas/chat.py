@@ -77,3 +77,13 @@ class SSEEvent(BaseModel):
     cards: Optional[list[EmployeeCard | ProductCard | HRInfoCard]] = None
     message_id: Optional[str] = None
     session_id: Optional[str] = None
+
+
+class QuickActionRequest(BaseModel):
+    action: str
+    payload: dict[str, Any] = {}
+
+
+class QuickActionResponse(BaseModel):
+    result: dict[str, Any] = {}
+    message: str = ""

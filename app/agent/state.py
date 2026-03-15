@@ -6,14 +6,7 @@ from typing import Annotated, Optional
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
-
-@dataclass
-class UserContext:
-    id: str
-    name: str
-    position: str = ""
-    department: str = ""
-    city: str = ""
+from app.schemas.chat import UserContext
 
 
 @dataclass
