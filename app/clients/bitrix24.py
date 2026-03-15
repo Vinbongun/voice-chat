@@ -8,10 +8,7 @@ from app.config import settings
 
 
 class Bitrix24Client:
-    """Bitrix24 REST API client for CRM, tasks, and news operations.
-
-    TODO: реализовать полностью в последующих задачах.
-    """
+    """Bitrix24 REST API client for CRM, tasks, news, and employee photo URLs."""
 
     def __init__(self) -> None:
         self.webhook_url = settings.BITRIX24_WEBHOOK_URL
@@ -24,6 +21,24 @@ class Bitrix24Client:
     async def __aexit__(self, *args: Any) -> None:
         if self._client:
             await self._client.aclose()
+
+    async def get_user_photo(self, bitrix_id: str) -> str | None:
+        """Get employee photo URL by Bitrix24 user ID."""
+        if not self.webhook_url or not bitrix_id:
+            return None
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.webhook_url}/user.get",
+                params={"ID": bitrix_id},
+                timeout=10.0,
+            )
+            if response.status_code != 200:
+                return None
+            data = response.json()
+            users = data.get("result", [])
+            if users:
+                return users[0].get("PERSONAL_PHOTO")
+            return None
 
     async def get_employee(self, user_id: str) -> dict[str, Any]:
         """Get employee info from Bitrix24.
