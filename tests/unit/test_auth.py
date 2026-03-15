@@ -67,12 +67,14 @@ async def test_valid_token_returns_user_context(mocker):
     """Valid JWT must return a UserContext object."""
     from app.middleware.auth import get_current_user
     from app.schemas.chat import UserContext
+    from app.middleware import auth as auth_module
 
     mocker.patch("app.middleware.auth.jwt.decode", return_value=SAMPLE_PAYLOAD)
 
     result = await get_current_user(authorization="Bearer valid.token.here")
 
     assert isinstance(result, UserContext)
+    assert auth_module.ALGORITHM == "RS256"
 
 
 @pytest.mark.asyncio
@@ -89,3 +91,25 @@ async def test_user_context_fields_extracted(mocker):
     assert result.position == "Разработчик"
     assert result.department == "IT"
     assert result.city == "Москва"
+
+
+@pytest.mark.asyncio
+async def test_malformed_bearer_raises_401():
+    """Wrong casing or empty token after Bearer."""
+    from app.middleware.auth import get_current_user
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_current_user(authorization="bearer valid.token.here")
+    assert exc_info.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_missing_sub_raises_401(mocker):
+    """JWT without sub claim should raise 401."""
+    from app.middleware.auth import get_current_user
+
+    payload_no_sub = {"name": "Test", "attributes": {}}
+    mocker.patch("app.middleware.auth.jwt.decode", return_value=payload_no_sub)
+    with pytest.raises(HTTPException) as exc_info:
+        await get_current_user(authorization="Bearer fake.token")
+    assert exc_info.value.status_code == 401
