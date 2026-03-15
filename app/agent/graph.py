@@ -6,6 +6,7 @@ from langchain_core.messages import BaseMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode
+from langfuse.callback import CallbackHandler as LangfuseCallbackHandler
 
 from app.agent.state import AgentState
 from app.config import settings
@@ -24,10 +25,20 @@ def build_graph(tools: list = None):
     if tools is None:
         tools = []
 
+    callbacks = []
+    if settings.LANGFUSE_PUBLIC_KEY:
+        langfuse_handler = LangfuseCallbackHandler(
+            public_key=settings.LANGFUSE_PUBLIC_KEY,
+            secret_key=settings.LANGFUSE_SECRET_KEY,
+            host=settings.LANGFUSE_HOST,
+        )
+        callbacks.append(langfuse_handler)
+
     llm = ChatOpenAI(
         model=settings.LLM_MODEL,
         base_url=settings.LLM_BASE_URL or None,
         api_key=settings.OPENAI_API_KEY or "placeholder",
+        callbacks=callbacks if callbacks else None,
     )
 
     if tools:
