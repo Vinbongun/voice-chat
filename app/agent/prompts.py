@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 SYSTEM_PROMPT = """Ты — корпоративный ассистент компании для {employee_count} сотрудников.
 
 Ты помогаешь сотрудникам с:
@@ -20,6 +22,21 @@ SYSTEM_PROMPT = """Ты — корпоративный ассистент ком
 Текущий пользователь: {user_name} ({user_position}, {user_department})
 """
 
+SYSTEM_PROMPT_TEMPLATE = """Ты AI-ассистент компании. Помогаешь сотруднику с рабочими вопросами.
+
+Контекст пользователя:
+- Имя: {name}
+- Должность: {position}
+- Отдел: {department}
+- Город/филиал: {city}
+
+Правила:
+1. Отвечай только на русском языке
+2. Если нашёл информацию через tool — обязательно укажи источник документа
+3. Перед выполнением действий (создать заявку, оформить отпуск) — уточни детали
+4. HR-данные (зарплата, отпуск) — только текущего пользователя, никогда чужие
+5. Если не знаешь ответа — скажи честно, не выдумывай"""
+
 
 def format_system_prompt(
     user_name: str = "",
@@ -32,4 +49,14 @@ def format_system_prompt(
         user_position=user_position,
         user_department=user_department,
         employee_count=employee_count,
+    )
+
+
+def build_system_prompt(user) -> str:
+    """Format the system prompt with user context from a UserContext object."""
+    return SYSTEM_PROMPT_TEMPLATE.format(
+        name=user.name,
+        position=user.position,
+        department=user.department,
+        city=user.city,
     )
