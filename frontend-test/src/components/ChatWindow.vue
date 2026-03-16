@@ -64,10 +64,10 @@ async function sendMessage() {
     text,
     store.sessionId,
     (delta) => store.appendDelta(delta),
-    () => { store.isLoading = false },
+    () => { store.isLoading = false; store.saveAssistantMessage() },
     (cards) => {
       const last = store.messages[store.messages.length - 1]
-      if (last) last.cards = cards
+      if (last) { last.cards = cards; store.saveAssistantMessage() }
     }
   )
 }
@@ -84,8 +84,8 @@ async function sendQuickAction(action) {
     store.messages.push({ role: 'assistant', text: '', cards: [], sources: [], timestamp: Date.now() })
     sendMessageSSE(message, store.sessionId,
       (delta) => store.appendDelta(delta),
-      () => { store.isLoading = false },
-      (cards) => { const last = store.messages[store.messages.length - 1]; if (last) last.cards = cards }
+      () => { store.isLoading = false; store.saveAssistantMessage() },
+      (cards) => { const last = store.messages[store.messages.length - 1]; if (last) { last.cards = cards; store.saveAssistantMessage() } }
     )
   } catch (e) {
     console.error('Quick action failed:', e)

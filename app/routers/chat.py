@@ -9,7 +9,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from sse_starlette.sse import EventSourceResponse
 
 from app.agent.graph import build_graph
@@ -38,6 +38,22 @@ TOOLS = [search_documents, search_employees, search_products, create_ticket, lis
 agent_graph = build_graph(tools=TOOLS)
 
 
+def _extract_cards(messages: list) -> list[dict]:
+    """Extract structured card data from tool messages."""
+    cards = []
+    for msg in messages:
+        if not isinstance(msg, ToolMessage):
+            continue
+        try:
+            content = msg.content
+            data = json.loads(content) if isinstance(content, str) else content
+            if isinstance(data, list):
+                cards.extend(item for item in data if isinstance(item, dict) and "type" in item)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+    return cards
+
+
 async def _run_agent(message: str, user: UserContext, session_id: str) -> dict:
     """Run the LangGraph agent and return a response dict."""
     system_prompt = build_system_prompt(user)
@@ -61,12 +77,14 @@ async def _run_agent(message: str, user: UserContext, session_id: str) -> dict:
         else str(final_message)
     )
 
+    cards = _extract_cards(result["messages"])
+
     return {
         "session_id": session_id,
         "message_id": str(uuid.uuid4()),
         "text": text,
         "sources": [],
-        "cards": [],
+        "cards": cards,
         "actions": [],
     }
 
@@ -103,6 +121,11 @@ async def stream_chat(
         try:
             result = await _run_agent(message, user, session_id)
             text = result["text"]
+            cards = result["cards"]
+
+            # Send cards first so UI renders them before text
+            if cards:
+                yield {"data": json.dumps({"type": "cards", "cards": cards})}
 
             # Stream text word-by-word
             words = text.split()
