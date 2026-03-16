@@ -1,0 +1,104 @@
+version: "3.9"
+
+# RAGFlow full stack (without MinIO — uses Yandex S3)
+# Before starting:
+#   1. Edit ragflow/service_conf.yaml — set YC_ACCESS_KEY, YC_SECRET_KEY, bucket name
+#   2. Run: docker compose -f docker-compose.ragflow.yml up -d
+#   3. Open http://localhost:9380 — create admin account on first run
+#   4. Copy API key to .env: RAGFLOW_API_KEY=ragflow-xxxxx
+
+services:
+  ragflow-es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.3
+    container_name: ragflow-es
+    environment:
+      - node.name=ragflow-es
+      - ELASTIC_PASSWORD=infini_rag_flow
+      - bootstrap.memory_lock=false
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+    mem_limit: 2g
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - ragflow_es_data:/usr/share/elasticsearch/data
+    ports:
+      - "1200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200 | grep -q 'cluster_name'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+    networks:
+      - ragflow
+    restart: unless-stopped
+
+  ragflow-mysql:
+    image: mysql:8.0.39
+    container_name: ragflow-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=infini_rag_flow
+      - TZ=Europe/Moscow
+    command:
+      --max_connections=1000
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_general_ci
+      --default-authentication-plugin=mysql_native_password
+      --init-file /data/application/init.sql
+    volumes:
+      - ragflow_mysql_data:/var/lib/mysql
+      - ./ragflow/init.sql:/data/application/init.sql
+    ports:
+      - "5455:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-uroot", "-pinfini_rag_flow"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - ragflow
+    restart: unless-stopped
+
+  ragflow-redis:
+    image: redis:7.2.4
+    container_name: ragflow-redis
+    command: redis-server --requirepass infini_rag_flow --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - ragflow_redis_data:/data
+    networks:
+      - ragflow
+    restart: unless-stopped
+
+  ragflow:
+    image: infiniflow/ragflow:v0.12.0
+    container_name: ragflow-server
+    depends_on:
+      ragflow-mysql:
+        condition: service_healthy
+      ragflow-es:
+        condition: service_healthy
+    ports:
+      - "9380:9380"
+      - "9381:80"
+    volumes:
+      - ./ragflow/service_conf.yaml:/ragflow/conf/service_conf.yaml
+      - ragflow_logs:/ragflow/logs
+    environment:
+      - TZ=Europe/Moscow
+    networks:
+      - ragflow
+    restart: unless-stopped
+
+volumes:
+  ragflow_es_data:
+  ragflow_mysql_data:
+  ragflow_redis_data:
+  ragflow_logs:
+
+networks:
+  ragflow:
+    driver: bridge

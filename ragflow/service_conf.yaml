@@ -1,0 +1,29 @@
+ragflow:
+  host: 0.0.0.0
+  http_port: 9380
+
+mysql:
+  name: 'rag_flow'
+  user: 'root'
+  password: 'infini_rag_flow'
+  host: 'ragflow-mysql'
+  port: 3306
+  max_connections: 100
+  stale_timeout: 30
+
+s3:
+  endpoint: 'https://storage.yandexcloud.net'
+  access_key: 'YC_ACCESS_KEY'
+  secret_key: 'YC_SECRET_KEY'
+  region: 'ru-central1'
+  bucket: 'ragflow-docs'
+
+es:
+  hosts: 'http://ragflow-es:9200'
+  username: 'elastic'
+  password: 'infini_rag_flow'
+
+redis:
+  db: 1
+  password: 'infini_rag_flow'
+  host: 'ragflow-redis:6379'
