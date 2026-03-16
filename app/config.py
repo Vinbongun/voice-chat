@@ -34,5 +34,8 @@ class Settings(BaseSettings):
     LANGFUSE_SECRET_KEY: str = ""
     LANGFUSE_HOST: str = "http://langfuse:3000"
 
+    # Development
+    DEV_AUTH_BYPASS: bool = False  # Set to true in .env to skip JWT check
+
 
 settings = Settings()

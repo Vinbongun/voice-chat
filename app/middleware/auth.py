@@ -4,14 +4,27 @@ from jose import jwt, JWTError, ExpiredSignatureError
 from fastapi import Header, Query, HTTPException
 
 from app.schemas.chat import UserContext
+from app.config import settings
 
 ALGORITHM = "RS256"
+
+_DEV_USER = UserContext(
+    id="dev-user",
+    name="Dev User",
+    position="",
+    department="",
+    city="",
+)
 
 
 async def get_current_user(
     authorization: Optional[str] = Header(None),
     token: Optional[str] = Query(None),
 ) -> UserContext:
+    # Dev bypass — set DEV_AUTH_BYPASS=true in .env to skip JWT (never use in prod)
+    if settings.DEV_AUTH_BYPASS:
+        return _DEV_USER
+
     # EventSource (SSE) cannot send custom headers, so accept token via query param
     raw_token = None
     if authorization and authorization.startswith("Bearer "):
