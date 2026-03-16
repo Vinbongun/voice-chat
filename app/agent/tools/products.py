@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.clients.ragflow import RAGFlowClient
 from app.db.database import async_session_maker
-from app.schemas.chat import ProductCard
+from app.schemas.chat import ProductAvailability, ProductCard
 
 ragflow_client = RAGFlowClient()
 
@@ -36,10 +36,12 @@ async def search_products(query: str) -> list[dict[str, Any]]:
     for chunk in chunks:
         product_id = chunk.get("document_id", "")
         if product_id and product_id not in product_data:
+            metadata = chunk.get("metadata", {}) or {}
             product_data[product_id] = {
                 "id": product_id,
                 "name": chunk.get("document_keyword", ""),
                 "description": chunk.get("content", ""),
+                "brand": metadata.get("brand", ""),
             }
 
     if not product_data:
@@ -60,7 +62,7 @@ async def search_products(query: str) -> list[dict[str, Any]]:
         result = await session.execute(prices_query, {"ids": product_ids})
         rows = result.mappings().all()
 
-    # Group rows by product_id; first row's price becomes the card price
+    # Group rows by product_id; build availability list; first branch price = card price
     enriched: dict[str, dict[str, Any]] = {}
     for row in rows:
         pid = row["id"]
@@ -68,18 +70,31 @@ async def search_products(query: str) -> list[dict[str, Any]]:
             enriched[pid] = {
                 "id": pid,
                 "name": row["name"] or product_data.get(pid, {}).get("name", ""),
+                "brand": row["brand"] or product_data.get(pid, {}).get("brand", ""),
                 "description": product_data.get(pid, {}).get("description", ""),
-                "price": float(row["price"]) if row["price"] is not None else None,
+                "photo_url": row["photo_url"] or "",
+                "price": float(row["price"]) if row["price"] is not None else 0.0,
+                "availability": [],
             }
+        if row["branch_name"] is not None:
+            enriched[pid]["availability"].append(
+                ProductAvailability(
+                    branch=row["branch_name"],
+                    qty=row["qty"] if row["qty"] is not None else 0,
+                )
+            )
 
-    # For products not found in DB, use RAGFlow data with no price
+    # For products not found in DB, use RAGFlow data with no price / availability
     for pid, data in product_data.items():
         if pid not in enriched:
             enriched[pid] = {
                 "id": pid,
                 "name": data["name"],
+                "brand": data.get("brand", ""),
                 "description": data["description"],
+                "photo_url": "",
                 "price": None,
+                "availability": [],
             }
 
     return [
@@ -87,8 +102,12 @@ async def search_products(query: str) -> list[dict[str, Any]]:
             type="product",
             id=p["id"],
             name=p["name"],
+            brand=p.get("brand", ""),
             description=p["description"],
+            photo_url=p.get("photo_url", ""),
             price=p["price"],
+            availability=p["availability"],
+            url=f"/products/{p['id']}",
         ).model_dump()
         for p in enriched.values()
     ]

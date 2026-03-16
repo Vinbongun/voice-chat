@@ -2,12 +2,13 @@
 
 Test cases:
 1. test_search_products_returns_product_cards — mock RAGFlow + DB, returns list
-   with correct ProductCard fields (type, id, name, description, price, unit, category)
+   with correct ProductCard fields (type, id, name, brand, description,
+   photo_url, price, availability, url)
 2. test_search_products_empty_ragflow_results — RAGFlow returns [] → tool returns []
 3. test_search_products_enriches_with_prices — verify DB query called with
    product_ids from RAGFlow results
 4. test_search_products_handles_missing_prices — product in RAGFlow but no
-   prices in DB → price=None (default)
+   prices in DB → availability == [] and price is None or 0.0
 """
 from __future__ import annotations
 
@@ -90,9 +91,19 @@ async def test_search_products_returns_product_cards(mocker):
     assert card["type"] == "product"
     assert card["id"] == "prod-001"
     assert card["name"] == "Корм Royal Canin Adult Maxi"
+    assert isinstance(card["brand"], str)
     assert isinstance(card["description"], str)
+    assert isinstance(card["photo_url"], str)
     # price comes from DB row (first availability entry)
     assert card["price"] == 1890.0
+    # availability is a list of branch/qty dicts
+    assert isinstance(card["availability"], list)
+    assert len(card["availability"]) >= 1
+    avail_entry = card["availability"][0]
+    assert "branch" in avail_entry
+    assert "qty" in avail_entry
+    # url is /products/<id>
+    assert card["url"] == "/products/prod-001"
 
 
 # ---------------------------------------------------------------------------
@@ -193,7 +204,7 @@ async def test_search_products_enriches_with_prices(mocker):
 
 @pytest.mark.asyncio
 async def test_search_products_handles_missing_prices(mocker):
-    """Product found in RAGFlow but absent from DB → price=None (schema default)."""
+    """Product found in RAGFlow but absent from DB → availability == [] and price is None."""
     from app.agent.tools.products import search_products
 
     mocker.patch(
@@ -210,5 +221,7 @@ async def test_search_products_handles_missing_prices(mocker):
     assert len(result) == 1
     card = result[0]
     assert card["id"] == "prod-001"
+    # availability is empty when no DB row exists
+    assert card["availability"] == []
     # price defaults to None when no DB row exists
-    assert card["price"] is None
+    assert card["price"] is None or card["price"] == 0.0

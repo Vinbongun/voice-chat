@@ -38,14 +38,21 @@ class EmployeeCard(BaseModel):
     city: str = ""
 
 
+class ProductAvailability(BaseModel):
+    branch: str
+    qty: int = 0
+
+
 class ProductCard(BaseModel):
     type: str = "product"
     id: str
     name: str
+    brand: str = ""
     description: str = ""
+    photo_url: str = ""
     price: Optional[float] = None
-    unit: str = ""
-    category: str = ""
+    availability: list[ProductAvailability] = []
+    url: str = ""
 
 
 class HRInfoCard(BaseModel):
