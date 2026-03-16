@@ -1,0 +1,50 @@
+version: "3.9"
+
+# Упрощённый стек для локального тестирования (без RAGFlow и Langfuse)
+# Запуск: docker compose -f docker-compose.dev.yml up --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: chat_db
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d chat_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://user:pass@postgres:5432/chat_db
+    volumes:
+      - ./app:/app/app   # hot-reload при разработке
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend-test
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3001:3000"
+    environment:
+      VITE_API_URL: http://localhost:8000
+    volumes:
+      - ./frontend-test:/app
+      - /app/node_modules
+
+volumes:
+  postgres_dev_data:
