@@ -74,14 +74,14 @@ async def _run_agent(message: str, user: UserContext, session_id: str) -> dict:
 @router.post("", response_model=ChatResponse)
 @limiter.limit("30/minute")
 async def post_chat(
-    http_request: Request,
-    request: ChatRequest,
+    request: Request,
+    body: ChatRequest,
     user: UserContext = Depends(get_current_user),
 ) -> ChatResponse:
     """Full response endpoint (non-streaming fallback for older clients)."""
-    session_id = str(request.session_id) if request.session_id else str(uuid.uuid4())
+    session_id = str(body.session_id) if body.session_id else str(uuid.uuid4())
     try:
-        response_data = await _run_agent(request.message, user, session_id)
+        response_data = await _run_agent(body.message, user, session_id)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return ChatResponse(**response_data)
@@ -90,7 +90,7 @@ async def post_chat(
 @router.get("/stream")
 @limiter.limit("30/minute")
 async def stream_chat(
-    http_request: Request,
+    request: Request,
     message: str = Query(...),
     session_id: Optional[str] = Query(None),
     user: UserContext = Depends(get_current_user),
