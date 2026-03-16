@@ -1,27 +1,32 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import axios from 'axios'
 
-const STORAGE_KEY = 'chat_history'
+const SESSION_KEY = 'chat_session_id'
 
 export const useChatStore = defineStore('chat', () => {
   const sessionId = ref(null)
   const messages = ref([])
   const isLoading = ref(false)
 
-  function initSession() {
-    const saved = _loadFromStorage()
-    if (saved) {
-      sessionId.value = saved.sessionId
-      messages.value = saved.messages
-    }
-    if (!sessionId.value) {
-      sessionId.value = _uuid()
+  async function initSession() {
+    // Restore or create session ID
+    sessionId.value = localStorage.getItem(SESSION_KEY) || _uuid()
+    localStorage.setItem(SESSION_KEY, sessionId.value)
+
+    // Load history from DB
+    try {
+      const { data } = await axios.get(`/chat/history?session_id=${sessionId.value}`)
+      if (data.messages?.length) {
+        messages.value = data.messages
+      }
+    } catch {
+      // DB history unavailable — start fresh
     }
   }
 
   function addUserMessage(text) {
-    messages.value.push({ role: 'user', text, timestamp: Date.now() })
-    _saveToStorage()
+    messages.value.push({ role: 'user', text, cards: [], timestamp: Date.now() })
   }
 
   function appendDelta(delta) {
@@ -29,37 +34,18 @@ export const useChatStore = defineStore('chat', () => {
     if (last?.role === 'assistant') {
       last.text += delta
     } else {
-      messages.value.push({ role: 'assistant', text: delta, cards: [], sources: [], timestamp: Date.now() })
+      messages.value.push({ role: 'assistant', text: delta, cards: [], timestamp: Date.now() })
     }
-    _saveToStorage()
   }
 
   function saveAssistantMessage() {
-    _saveToStorage()
+    // No-op — messages are saved to DB by the backend on each request
   }
 
   function clearHistory() {
     messages.value = []
     sessionId.value = _uuid()
-    localStorage.removeItem(STORAGE_KEY)
-  }
-
-  function _saveToStorage() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        sessionId: sessionId.value,
-        messages: messages.value.slice(-50), // keep last 50
-      }))
-    } catch {}
-  }
-
-  function _loadFromStorage() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      return raw ? JSON.parse(raw) : null
-    } catch {
-      return null
-    }
+    localStorage.setItem(SESSION_KEY, sessionId.value)
   }
 
   function _uuid() {

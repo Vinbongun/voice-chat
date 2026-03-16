@@ -29,9 +29,10 @@ async def search_news(query: str) -> list[dict]:
 
         return [
             {
+                "type": "news",
                 "id": row["id"],
                 "title": row["title"],
-                "content": row["content"][:500] + "..." if len(row["content"]) > 500 else row["content"],
+                "content": row["content"][:300] + "..." if len(row["content"]) > 300 else row["content"],
                 "published_at": row["published_at"],
             }
             for row in rows

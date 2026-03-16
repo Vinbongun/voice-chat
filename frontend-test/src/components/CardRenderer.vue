@@ -11,12 +11,16 @@
 
 <script setup>
 import { defineAsyncComponent } from 'vue'
+
 const CARD_COMPONENTS = {
-  employee: defineAsyncComponent(() => import('./EmployeeCard.vue')),
-  document: defineAsyncComponent(() => import('./DocumentSource.vue')),
+  employee:      defineAsyncComponent(() => import('./EmployeeCard.vue')),
+  product:       defineAsyncComponent(() => import('./ProductCard.vue')),
+  hr_info:       defineAsyncComponent(() => import('./HRInfoCard.vue')),
+  document:      defineAsyncComponent(() => import('./DocumentSource.vue')),
+  news:          defineAsyncComponent(() => import('./NewsCard.vue')),
+  ticket:        defineAsyncComponent(() => import('./TicketCard.vue')),
   action_button: defineAsyncComponent(() => import('./ActionButtons.vue')),
-  product: defineAsyncComponent(() => import('./ProductCard.vue')),
-  hr_info: defineAsyncComponent(() => import('./HRInfoCard.vue')),
 }
+
 defineProps({ cards: Array })
 </script>

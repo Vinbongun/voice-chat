@@ -45,7 +45,7 @@ class ChatMessage(Base):
     role: Mapped[str] = mapped_column(String(50), nullable=False)  # "user" | "assistant"
     content: Mapped[str] = mapped_column(Text, nullable=False)
     metadata_: Mapped[Optional[dict[str, Any]]] = mapped_column(
-        "metadata", JSONB, nullable=True
+        "metadata_", JSONB, nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

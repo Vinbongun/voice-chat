@@ -10,6 +10,7 @@ from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from sqlalchemy import select, insert
 from sse_starlette.sse import EventSourceResponse
 
 from app.agent.graph import build_graph
@@ -21,6 +22,7 @@ from app.agent.tools.products import search_products
 from app.agent.tools.rag import search_documents
 from app.agent.tools.tickets import create_ticket, list_tickets
 from app.db.database import async_session_maker
+from app.db.models import ChatMessage, ChatSession
 from app.middleware.auth import get_current_user
 from app.schemas.chat import (
     ChatRequest,
@@ -52,6 +54,36 @@ def _extract_cards(messages: list) -> list[dict]:
         except (json.JSONDecodeError, TypeError, ValueError):
             pass
     return cards
+
+
+async def _save_to_db(session_id: str, user_id: str, user_msg: str, result: dict) -> None:
+    """Persist user message + assistant response to DB."""
+    try:
+        async with async_session_maker() as db:
+            # Upsert session
+            existing = await db.get(ChatSession, uuid.UUID(session_id))
+            if not existing:
+                db.add(ChatSession(id=uuid.UUID(session_id), user_id=user_id))
+
+            # Save user message
+            db.add(ChatMessage(
+                session_id=uuid.UUID(session_id),
+                role="user",
+                content=user_msg,
+            ))
+
+            # Save assistant response (cards stored in metadata)
+            db.add(ChatMessage(
+                id=uuid.UUID(result["message_id"]),
+                session_id=uuid.UUID(session_id),
+                role="assistant",
+                content=result["text"],
+                metadata_={"cards": result["cards"]} if result["cards"] else None,
+            ))
+            await db.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("DB history save failed: %s", e, exc_info=True)
 
 
 async def _run_agent(message: str, user: UserContext, session_id: str) -> dict:
@@ -100,6 +132,7 @@ async def post_chat(
     session_id = str(body.session_id) if body.session_id else str(uuid.uuid4())
     try:
         response_data = await _run_agent(body.message, user, session_id)
+        await _save_to_db(session_id, user.id, body.message, response_data)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return ChatResponse(**response_data)
@@ -122,6 +155,9 @@ async def stream_chat(
             result = await _run_agent(message, user, session_id)
             text = result["text"]
             cards = result["cards"]
+
+            # Persist to DB (best-effort)
+            await _save_to_db(session_id, user.id, message, result)
 
             # Send cards first so UI renders them before text
             if cards:
@@ -178,9 +214,28 @@ async def get_chat_history(
     session_id: str = Query(...),
     user: UserContext = Depends(get_current_user),
 ) -> dict:
-    """Get chat history for a session.
+    """Load chat history for a session from DB."""
+    try:
+        async with async_session_maker() as db:
+            stmt = (
+                select(ChatMessage)
+                .where(ChatMessage.session_id == uuid.UUID(session_id))
+                .order_by(ChatMessage.created_at)
+            )
+            result = await db.execute(stmt)
+            rows = result.scalars().all()
 
-    TODO (Task 7): integrate with PostgresChatMessageHistory.
-    """
-    # Stub — returns empty messages list until Task 7 integrates DB history
-    return {"session_id": session_id, "messages": []}
+            messages = []
+            for row in rows:
+                msg = {
+                    "id": str(row.id),
+                    "role": row.role,
+                    "text": row.content,
+                    "cards": row.metadata_.get("cards", []) if row.metadata_ else [],
+                    "timestamp": row.created_at.timestamp() * 1000 if row.created_at else None,
+                }
+                messages.append(msg)
+
+            return {"session_id": session_id, "messages": messages}
+    except Exception as e:
+        return {"session_id": session_id, "messages": []}

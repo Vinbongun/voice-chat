@@ -20,16 +20,22 @@ async def search_employees(query: str) -> list[dict]:
         List of employee cards with contact information
     """
     async with async_session_maker() as session:
-        # Full-text search using PostgreSQL ts_vector
-        fts_query = text("""
+        # Combined FTS + ILIKE: FTS for Russian morphology, ILIKE catches
+        # Latin abbreviations like "IT" that Russian dictionary doesn't stem.
+        combined_query = text("""
             SELECT id, name, position, department, phone, email, photo_url, city
             FROM employees
-            WHERE to_tsvector('russian', name || ' ' || COALESCE(position, '') || ' ' || COALESCE(department, ''))
-                  @@ plainto_tsquery('russian', :query)
+            WHERE
+                to_tsvector('russian',
+                    name || ' ' || COALESCE(position, '') || ' ' || COALESCE(department, '')
+                ) @@ plainto_tsquery('russian', :query)
+                OR LOWER(department) LIKE LOWER('%' || :query || '%')
+                OR LOWER(position)   LIKE LOWER('%' || :query || '%')
+                OR LOWER(name)       LIKE LOWER('%' || :query || '%')
             ORDER BY synced_at DESC
             LIMIT 5
         """)
-        result = await session.execute(fts_query, {"query": query})
+        result = await session.execute(combined_query, {"query": query})
         rows = result.mappings().all()
 
         return [

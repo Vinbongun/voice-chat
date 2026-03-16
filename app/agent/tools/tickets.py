@@ -56,6 +56,7 @@ async def list_tickets(user_id: str, status: str = "active") -> list[dict]:
     tickets = await uit_client.list_tickets(user_id=user_id, status=status)
     return [
         {
+            "type": "ticket",
             "id": t.get("id", ""),
             "title": t.get("title", ""),
             "status": t.get("status", ""),
