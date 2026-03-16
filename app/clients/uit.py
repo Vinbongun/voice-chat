@@ -3,33 +3,63 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.config import settings
 
 
 class UITClient:
-    """1С УИТ (Upravleniye Informatsionnymi Tekhnologiyami) REST API client.
-
-    Used for products, services catalog, and IT asset management.
-    TODO: реализовать полностью.
-    """
+    """1С УИТ IT service desk API client."""
 
     def __init__(self) -> None:
-        self.api_url = settings.UIT_API_URL
+        self.base_url = settings.UIT_API_URL
         self.api_token = settings.UIT_API_TOKEN
-        self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> UITClient:
-        self._client = httpx.AsyncClient(
-            base_url=self.api_url,
-            headers={"Authorization": f"Bearer {self.api_token}"},
-            timeout=30.0,
-        )
-        return self
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self.api_token}",
+            "Content-Type": "application/json",
+        }
 
-    async def __aexit__(self, *args: Any) -> None:
-        if self._client:
-            await self._client.aclose()
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+    async def create_ticket(
+        self,
+        user_id: str,
+        title: str,
+        description: str,
+        category: str = "IT",
+        priority: str = "normal",
+    ) -> dict[str, Any]:
+        """Create a new support ticket."""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}/tickets",
+                headers=self._headers(),
+                json={
+                    "user_id": user_id,
+                    "title": title,
+                    "description": description,
+                    "category": category,
+                    "priority": priority,
+                },
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            return response.json()
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+    async def list_tickets(self, user_id: str, status: str = "active") -> list[dict[str, Any]]:
+        """List tickets for a user."""
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.base_url}/tickets",
+                headers=self._headers(),
+                params={"user_id": user_id, "status": status},
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("tickets", [])
 
     async def search_products(self, query: str, category: str = "", limit: int = 10) -> list[dict[str, Any]]:
         """Search products in 1C UIT catalog.
