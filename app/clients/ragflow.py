@@ -15,7 +15,7 @@ class RAGFlowClient:
         self.base_url = settings.RAGFLOW_BASE_URL
         self.api_key = settings.RAGFLOW_API_KEY
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
+    @retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=0.5, min=0.5, max=2))
     async def retrieve(
         self,
         query: str,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from langchain_core.tools import tool
@@ -7,6 +8,7 @@ from langchain_core.tools import tool
 from app.clients.ragflow import RAGFlowClient
 from app.schemas.chat import DocumentSource
 
+logger = logging.getLogger(__name__)
 ragflow_client = RAGFlowClient()
 
 
@@ -23,7 +25,11 @@ async def search_documents(query: str) -> list[dict[str, Any]]:
     Returns:
         List of relevant document excerpts with source information
     """
-    chunks = await ragflow_client.retrieve(query=query, top_k=5)
+    try:
+        chunks = await ragflow_client.retrieve(query=query, top_k=5)
+    except Exception as exc:
+        logger.warning("RAGFlow unavailable: %s", exc)
+        return []
 
     results = []
     for chunk in chunks:
