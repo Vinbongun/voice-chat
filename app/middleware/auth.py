@@ -1,22 +1,34 @@
+from typing import Optional
+
 from jose import jwt, JWTError, ExpiredSignatureError
-from fastapi import Header, HTTPException
+from fastapi import Header, Query, HTTPException
 
 from app.schemas.chat import UserContext
 
 ALGORITHM = "RS256"
 
 
-async def get_current_user(authorization: str = Header(None)) -> UserContext:
-    if not authorization or not authorization.startswith("Bearer "):
+async def get_current_user(
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None),
+) -> UserContext:
+    # EventSource (SSE) cannot send custom headers, so accept token via query param
+    raw_token = None
+    if authorization and authorization.startswith("Bearer "):
+        raw_token = authorization.removeprefix("Bearer ").strip()
+    elif token:
+        raw_token = token
+
+    if not raw_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    token = authorization.removeprefix("Bearer ").strip()
+    token_str = raw_token
 
     try:
         # SECURITY: verify_signature=False is for development only.
         # Set KEYCLOAK_PUBLIC_KEY in config to enable signature verification (Phase 3).
         payload = jwt.decode(
-            token,
+            token_str,
             key="",  # will be configured in Phase 3
             algorithms=[ALGORITHM],
             options={"verify_signature": False, "verify_exp": True},

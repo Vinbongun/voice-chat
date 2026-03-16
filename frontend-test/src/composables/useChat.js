@@ -12,7 +12,9 @@ export function useChat() {
   }
 
   const sendMessageSSE = (message, sessionId, onDelta, onDone, onCards) => {
+    const token = localStorage.getItem('test_token') || ''
     const params = new URLSearchParams({ message, session_id: sessionId })
+    if (token) params.set('token', token)
     const url = `/chat/stream?${params}`
 
     const eventSource = new EventSource(url)
