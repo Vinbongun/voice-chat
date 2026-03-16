@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Optional
 
-from sqlalchemy import DateTime, ForeignKey, SmallInteger, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -90,6 +91,52 @@ class MessageFeedback(Base):
     )
 
     message: Mapped[ChatMessage] = relationship("ChatMessage", back_populates="feedback")
+
+
+class Product(Base):
+    __tablename__ = "products"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    brand: Mapped[Optional[str]] = mapped_column(String(255))
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    photo_url: Mapped[Optional[str]] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    prices: Mapped[list["ProductPrice"]] = relationship(
+        "ProductPrice", back_populates="product", lazy="select"
+    )
+
+
+class ProductPrice(Base):
+    __tablename__ = "product_prices"
+
+    product_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("products.id"), primary_key=True
+    )
+    branch_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    branch_name: Mapped[Optional[str]] = mapped_column(String(255))
+    price: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2))
+    qty: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )
+    product: Mapped["Product"] = relationship("Product", back_populates="prices")
+
+
+class News(Base):
+    __tablename__ = "news"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    published_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )
 
 
 class AuditLog(Base):
