@@ -4,8 +4,8 @@
     <div class="flex flex-wrap gap-2">
       <button
         v-for="action in quickActions"
-        :key="action.label"
-        @click="$emit('action', action.text)"
+        :key="action.action"
+        @click="$emit('action', action.action)"
         class="bg-gray-100 text-gray-700 rounded-full px-3 py-1 text-xs hover:bg-gray-200"
       >
         {{ action.label }}
@@ -17,10 +17,10 @@
 <script setup>
 defineEmits(['action'])
 const quickActions = [
-  { label: '🏖 Мой отпуск', text: 'Сколько у меня осталось дней отпуска?' },
-  { label: '🎫 Мои заявки', text: 'Покажи мои активные заявки' },
-  { label: '👥 Найти сотрудника', text: 'Помоги найти сотрудника' },
-  { label: '📄 Найти документ', text: 'Найди документ' },
-  { label: '🖥 IT помощь', text: 'Создай IT заявку' },
+  { label: '🏖 Мой отпуск', action: 'my_vacation' },
+  { label: '🎫 Мои заявки', action: 'my_tickets' },
+  { label: '👥 Найти сотрудника', action: 'find_employee' },
+  { label: '📦 Найти товар', action: 'find_product' },
+  { label: '🖥 IT помощь', action: 'it_help' },
 ]
 </script>

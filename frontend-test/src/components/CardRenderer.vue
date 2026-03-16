@@ -15,6 +15,8 @@ const CARD_COMPONENTS = {
   employee: defineAsyncComponent(() => import('./EmployeeCard.vue')),
   document: defineAsyncComponent(() => import('./DocumentSource.vue')),
   action_button: defineAsyncComponent(() => import('./ActionButtons.vue')),
+  product: defineAsyncComponent(() => import('./ProductCard.vue')),
+  hr_info: defineAsyncComponent(() => import('./HRInfoCard.vue')),
 }
 defineProps({ cards: Array })
 </script>

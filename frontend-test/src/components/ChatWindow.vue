@@ -37,6 +37,7 @@
 
 <script setup>
 import { ref, nextTick, watch } from 'vue'
+import axios from 'axios'
 import { useChatStore } from '../stores/chat'
 import { useChat } from '../composables/useChat'
 import MessageBubble from './MessageBubble.vue'
@@ -71,9 +72,24 @@ async function sendMessage() {
   )
 }
 
-function sendQuickAction(action) {
-  inputText.value = action
-  sendMessage()
+async function sendQuickAction(action) {
+  try {
+    const response = await axios.post('/chat/quick-action',
+      { action },
+      { headers: { Authorization: `Bearer ${localStorage.getItem('test_token') || 'test-token'}` } }
+    )
+    const message = response.data.message
+    store.addUserMessage(message)
+    store.isLoading = true
+    store.messages.push({ role: 'assistant', text: '', cards: [], sources: [], timestamp: Date.now() })
+    sendMessageSSE(message, store.sessionId,
+      (delta) => store.appendDelta(delta),
+      () => { store.isLoading = false },
+      (cards) => { const last = store.messages[store.messages.length - 1]; if (last) last.cards = cards }
+    )
+  } catch (e) {
+    console.error('Quick action failed:', e)
+  }
 }
 
 watch(() => store.messages, async () => {

@@ -16,7 +16,10 @@ from app.agent.graph import build_graph
 from app.agent.prompts import build_system_prompt
 from app.agent.state import AgentState
 from app.agent.tools.employees import search_employees
+from app.agent.tools.news import search_news
+from app.agent.tools.products import search_products
 from app.agent.tools.rag import search_documents
+from app.agent.tools.tickets import create_ticket, list_tickets
 from app.db.database import async_session_maker
 from app.middleware.auth import get_current_user
 from app.schemas.chat import (
@@ -31,7 +34,7 @@ from app.utils.feedback import save_feedback
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 # Build agent once at module load time (startup)
-TOOLS = [search_documents, search_employees]
+TOOLS = [search_documents, search_employees, search_products, create_ticket, list_tickets, search_news]
 agent_graph = build_graph(tools=TOOLS)
 
 
