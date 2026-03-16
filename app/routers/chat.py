@@ -4,7 +4,11 @@ import json
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 from langchain_core.messages import HumanMessage, SystemMessage
 from sse_starlette.sse import EventSourceResponse
 
@@ -65,7 +69,9 @@ async def _run_agent(message: str, user: UserContext, session_id: str) -> dict:
 
 
 @router.post("", response_model=ChatResponse)
+@limiter.limit("30/minute")
 async def post_chat(
+    http_request: Request,
     request: ChatRequest,
     user: UserContext = Depends(get_current_user),
 ) -> ChatResponse:
@@ -79,7 +85,9 @@ async def post_chat(
 
 
 @router.get("/stream")
+@limiter.limit("30/minute")
 async def stream_chat(
+    http_request: Request,
     message: str = Query(...),
     session_id: Optional[str] = Query(None),
     user: UserContext = Depends(get_current_user),
