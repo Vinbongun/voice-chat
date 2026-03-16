@@ -13,12 +13,16 @@ from app.agent.prompts import build_system_prompt
 from app.agent.state import AgentState
 from app.agent.tools.employees import search_employees
 from app.agent.tools.rag import search_documents
+from app.db.database import async_session_maker
 from app.middleware.auth import get_current_user
 from app.schemas.chat import (
     ChatRequest,
     ChatResponse,
+    FeedbackRequest,
+    FeedbackResponse,
     UserContext,
 )
+from app.utils.feedback import save_feedback
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -110,6 +114,29 @@ async def stream_chat(
             yield {"data": json.dumps({"type": "error", "message": str(exc)})}
 
     return EventSourceResponse(event_generator())
+
+
+@router.post("/feedback", response_model=FeedbackResponse)
+async def post_feedback(
+    request: FeedbackRequest,
+    user: UserContext = Depends(get_current_user),
+) -> FeedbackResponse:
+    """Save 👍/👎 rating for a chat message."""
+    if request.rating not in (1, -1):
+        raise HTTPException(status_code=422, detail="Rating must be 1 (👍) or -1 (👎)")
+
+    try:
+        async with async_session_maker() as session:
+            await save_feedback(
+                session=session,
+                message_id=request.message_id,
+                user_id=user.id,
+                rating=request.rating,
+                comment=request.comment,
+            )
+        return FeedbackResponse(success=True, message="Спасибо за оценку!")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/history")

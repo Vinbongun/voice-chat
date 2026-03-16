@@ -1,17 +1,29 @@
-from typing import Optional
+"""Feedback rating helpers."""
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models import MessageFeedback
 
 
-def normalize_rating(rating: int, min_val: int = 1, max_val: int = 5) -> int:
-    """Clamp rating to valid range."""
-    return max(min_val, min(max_val, rating))
+async def save_feedback(
+    session: AsyncSession,
+    message_id: UUID,
+    user_id: str,
+    rating: int,
+    comment: str | None = None,
+) -> MessageFeedback:
+    """Save user feedback (👍/👎) for a chat message."""
+    if rating not in (1, -1):
+        raise ValueError(f"Rating must be 1 or -1, got {rating}")
 
-
-def rating_to_label(rating: int) -> str:
-    """Convert numeric rating to human-readable label."""
-    labels = {1: "very_bad", 2: "bad", 3: "neutral", 4: "good", 5: "very_good"}
-    return labels.get(rating, "unknown")
-
-
-def is_positive_feedback(rating: int, threshold: int = 4) -> bool:
-    """Return True if rating is considered positive."""
-    return rating >= threshold
+    feedback = MessageFeedback(
+        message_id=message_id,
+        user_id=user_id,
+        rating=rating,
+        comment=comment,
+    )
+    session.add(feedback)
+    await session.commit()
+    await session.refresh(feedback)
+    return feedback

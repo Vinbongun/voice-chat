@@ -94,3 +94,14 @@ class QuickActionRequest(BaseModel):
 class QuickActionResponse(BaseModel):
     result: dict[str, Any] = {}
     message: str = ""
+
+
+class FeedbackRequest(BaseModel):
+    message_id: UUID
+    rating: int  # 1 (👍) or -1 (👎)
+    comment: Optional[str] = None
+
+
+class FeedbackResponse(BaseModel):
+    success: bool
+    message: str
